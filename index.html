@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#142334">
+    <title>Code Typer Editor</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        body {
+            background-color: #000000;
+            color: #d4d4d4;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top App Bar */
+        .top-bar {
+            background-color: #142334;
+            color: #ffffff;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            z-index: 10;
+            font-family: system-ui, -apple-system, sans-serif;
+            flex-shrink: 0;
+        }
+
+        .top-left {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .menu-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .file-title {
+            font-size: 18px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .top-icons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 20px;
+            color: #e0e6ed;
+        }
+
+        .top-icons span {
+            cursor: pointer;
+        }
+
+        /* Code Editor Main Area */
+        .editor-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            background-color: #000000;
+            padding-top: 8px;
+            padding-bottom: 110px;
+        }
+
+        .code-row {
+            display: flex;
+            align-items: flex-start;
+            width: 100%;
+            min-height: 21px;
+        }
+
+        .line-num {
+            width: 42px;
+            text-align: right;
+            padding-right: 10px;
+            color: #6e7681;
+            font-size: 14px;
+            line-height: 1.5;
+            user-select: none;
+            border-right: 1px solid #222;
+            flex-shrink: 0;
+        }
+
+        .line-code {
+            flex: 1;
+            padding-left: 10px;
+            padding-right: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #e6edf3;
+        }
+
+        /* ရောင်စုံ စာသား အရောင်များ */
+        .tok-tag { color: #569cd6; }
+        .tok-attr { color: #9cdcfe; }
+        .tok-str { color: #ce9178; }
+        .tok-prop { color: #9cdcfe; }
+        .tok-val { color: #b5cea8; }
+        .tok-sel { color: #d7ba7d; }
+        .tok-kw { color: #c586c0; }
+        .tok-punc { color: #808080; }
+
+        /* မှိတ်တုတ် Cursor */
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 16px;
+            background-color: #ffd54f;
+            vertical-align: middle;
+            animation: blink 0.7s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* ညာဘက်အောက်ခြေ အဝါရောင် Play Button */
+        .fab-play {
+            position: fixed;
+            right: 20px;
+            bottom: 62px;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            background-color: #f3d049;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 20;
+            transition: transform 0.15s;
+        }
+
+        .fab-play:active {
+            transform: scale(0.92);
+        }
+
+        .play-icon {
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 16px solid #ffffff;
+            margin-left: 4px;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+        }
+
+        /* အောက်ခြေ Shortcut Toolbar */
+        .bottom-toolbar {
+            height: 42px;
+            background-color: #162436;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            color: #cfd8dc;
+            font-size: 16px;
+            border-top: 1px solid #24364d;
+            z-index: 15;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .bottom-toolbar span {
+            padding: 4px 10px;
+            border-right: 1px solid #2c415c;
+            flex: 1;
+            text-align: center;
+        }
+        .bottom-toolbar span:last-child { border-right: none; }
+
+        /* Menu (☰) Drawer */
+        .menu-drawer {
+            position: fixed;
+            top: 0;
+            left: -100%;
+            width: 88%;
+            max-width: 400px;
+            height: 100%;
+            background-color: #101c29;
+            z-index: 50;
+            transition: left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.8);
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow-y: auto;
+        }
+
+        .menu-drawer.open { left: 0; }
+
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 40;
+            display: none;
+        }
+        .drawer-overlay.show { display: block; }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            color: #f3d049;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .menu-drawer label {
+            font-size: 13px;
+            color: #9cdcfe;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .menu-drawer input[type="text"],
+        .menu-drawer textarea {
+            width: 100%;
+            background-color: #080f17;
+            color: #e6edf3;
+            border: 1px solid #2a4058;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .menu-drawer textarea {
+            flex: 1;
+            min-height: 160px;
+            resize: none;
+            line-height: 1.4;
+        }
+
+        /* Audio File Upload Box */
+        .audio-box {
+            background-color: #080f17;
+            border: 1px dashed #3b5978;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: #cfd8dc;
+        }
+
+        .audio-box input[type="file"] {
+            width: 100%;
+            color: #9cdcfe;
+            margin-top: 4px;
+            font-size: 12px;
+        }
+
+        .audio-status {
+            margin-top: 6px;
+            color: #00ff88;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-remove-audio {
+            background: #ff5f56;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            color: #ccc;
+            font-size: 12px;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            color: #ccc;
+            font-size: 13px;
+        }
+
+        .btn-save-play {
+            background-color: #f3d049;
+            color: #111;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Header -->
+    <div class="top-bar">
+        <div class="top-left">
+            <button class="menu-btn" onclick="toggleMenu()">☰</button>
+            <span class="file-title" id="headerFileName">new*</span>
+        </div>
+        <div class="top-icons">
+            <span onclick="toggleMenu()" title="Edit Code">📁</span>
+            <span onclick="clearScreen()" title="Clear & Stop">💡</span>
+            <span onclick="toggleMenu()" title="Options">⋮</span>
+        </div>
+    </div>
+
+    <!-- Main Editor View -->
+    <div class="editor-wrapper" id="editorWrapper">
+        <div class="code-row">
+            <div class="line-num">1</div>
+            <div class="line-code"><span class="cursor"></span></div>
+        </div>
+    </div>
+
+    <!-- Yellow Play Button -->
+    <button class="fab-play" onclick="startTyping()" title="Play">
+        <div class="play-icon"></div>
+    </button>
+
+    <!-- Bottom Symbol Bar -->
+    <div class="bottom-toolbar">
+        <span>Tab</span>
+        <span>:</span>
+        <span>;</span>
+        <span>'</span>
+        <span>#</span>
+        <span>(</span>
+    </div>
+
+    <!-- Slide-out Menu Drawer -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleMenu()"></div>
+    <div class="menu-drawer" id="menuDrawer">
+        <div class="drawer-header">
+            <span>Code နှင့် MP3 အသံ ထည့်ရန်</span>
+            <button class="close-btn" onclick="toggleMenu()">✕</button>
+        </div>
+
+        <label>ဖိုင်နာမည် (File Name)</label>
+        <input type="text" id="fileNameInput" value="new*">
+
+        <label>အသံသွင်းထားသော MP3 ဖိုင် ရွေးပါ</label>
+        <div class="audio-box">
+            <input type="file" id="audioFileInput" accept="audio/*" onchange="handleAudioUpload(event)">
+            <div class="audio-status" id="audioStatus" style="display: none;">
+                <span id="audioFileNameText">အသံဖိုင် ထည့်ပြီးပါပြီ</span>
+                <button class="btn-remove-audio" onclick="removeAudio()">ဖျက်မည်</button>
+            </div>
+            <label class="checkbox-row">
+                <input type="checkbox" id="stopAudioOnFinish" checked>
+                <span>စာရိုက်ပြီးတာနဲ့ အသံပါ ရပ်မည်</span>
+            </label>
+        </div>
+
+        <label>ဒီနေရာမှာ Code သို့မဟုတ် စာ ရိုက်ထည့်ပါ</label>
+        <textarea id="codeInput" placeholder="သင်ပြချင်သော Code များကို ဒီမှာထည့်ပါ..."></textarea>
+
+        <div class="speed-control">
+            <span>စာရိုက်နှုန်း: <strong id="speedLabel">မြန် (15ms)</strong></span>
+            <input type="range" id="speedRange" min="5" max="150" value="15" oninput="updateSpeedLabel(this.value)">
+        </div>
+
+        <button class="btn-save-play" onclick="saveAndPlay()">သိမ်းပြီး Play နှိပ်မည် ▶</button>
+    </div>
+
+    <!-- Hidden Audio Player -->
+    <audio id="bgAudioPlayer" preload="auto"></audio>
+
+    <script>
+        const defaultCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glowing Particle Heart - I LOVE YOU</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Montserrat:wght@600&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #030305;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+      font-family: 'Cinzel Decorative', cursive;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+    }
+  </style>
+</head>`;
+
+        const codeInput = document.getElementById('codeInput');
+        const editorWrapper = document.getElementById('editorWrapper');
+        const menuDrawer = document.getElementById('menuDrawer');
+        const drawerOverlay = document.getElementById('drawerOverlay');
+        const fileNameInput = document.getElementById('fileNameInput');
+        const headerFileName = document.getElementById('headerFileName');
+        const bgAudioPlayer = document.getElementById('bgAudioPlayer');
+        const audioStatus = document.getElementById('audioStatus');
+        const audioFileNameText = document.getElementById('audioFileNameText');
+        const stopAudioOnFinish = document.getElementById('stopAudioOnFinish');
+
+        // သိမ်းထားသော စာသားနှင့် အသံဖိုင်များကို ပြန်ဖော်ခြင်း
+        codeInput.value = localStorage.getItem('saved_code') || defaultCode;
+        fileNameInput.value = localStorage.getItem('saved_filename') || 'new*';
+        headerFileName.textContent = fileNameInput.value;
+
+        const savedAudioData = localStorage.getItem('saved_audio_data');
+        const savedAudioName = localStorage.getItem('saved_audio_name');
+        if (savedAudioData) {
+            bgAudioPlayer.src = savedAudioData;
+            audioStatus.style.display = 'flex';
+            audioFileNameText.textContent = '🎵 ' + (savedAudioName || 'Audio Ready');
+        }
+
+        let typingTimer = null;
+        let currentIndex = 0;
+        let typingSpeed = 15;
+
+        function toggleMenu() {
+            menuDrawer.classList.toggle('open');
+            drawerOverlay.classList.toggle('show');
+        }
+
+        function updateSpeedLabel(val) {
+            typingSpeed = Number(val);
+            let text = val <= 20 ? `မြန် (${val}ms)` : (val <= 60 ? `ပုံမှန် (${val}ms)` : `နှေး (${val}ms)`);
+            document.getElementById('speedLabel').textContent = text;
+        }
+
+        // MP3 ဖိုင် ရွေးချယ်လိုက်သည့်အခါ ဖတ်ယူသိမ်းဆည်းခြင်း
+        function handleAudioUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // ချက်ချင်း သုံးနိုင်ရန် Object URL ထည့်မည်
+            const objectUrl = URL.createObjectURL(file);
+            bgAudioPlayer.src = objectUrl;
+            audioStatus.style.display = 'flex';
+            audioFileNameText.textContent = '🎵 ' + file.name;
+
+            // 4MB အောက်ဖိုင်ဆိုရင် App ပိတ်ပြီးပြန်ဖွင့်ရင်တောင် မပျောက်အောင် LocalStorage ထဲ သိမ်းမည်
+            if (file.size < 4 * 1024 * 1024) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        localStorage.setItem('saved_audio_data', e.target.result);
+                        localStorage.setItem('saved_audio_name', file.name);
+                    } catch (err) {
+                        console.log('Audio too large for permanent storage, kept in session.');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeAudio() {
+            bgAudioPlayer.pause();
+            bgAudioPlayer.src = '';
+            document.getElementById('audioFileInput').value = '';
+            audioStatus.style.display = 'none';
+            localStorage.removeItem('saved_audio_data');
+            localStorage.removeItem('saved_audio_name');
+        }
+
+        function saveAndPlay() {
+            localStorage.setItem('saved_code', codeInput.value);
+            localStorage.setItem('saved_filename', fileNameInput.value);
+            headerFileName.textContent = fileNameInput.value || 'new*';
+            toggleMenu();
+            startTyping();
+        }
+
+        function clearScreen() {
+            clearInterval(typingTimer);
+            bgAudioPlayer.pause();
+            bgAudioPlayer.currentTime = 0;
+            editorWrapper.innerHTML = `
+                <div class="code-row">
+                    <div class="line-num">1</div>
+                    <div class="line-code"><span class="cursor"></span></div>
+                </div>`;
+        }
+
+        function highlightLine(lineText) {
+            let escaped = lineText
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            escaped = escaped.replace(/(&lt;\/?!?)([a-zA-Z0-9\-]+)(.*?)(\/?&gt;)/g, function(match, open, tag, attrs, close) {
+                let coloredAttrs = attrs.replace(/([a-zA-Z\-]+)(=)(".*?"|'.*?')/g, '<span class="tok-attr">$1</span>$2<span class="tok-str">$3</span>');
+                return `<span class="tok-punc">${open}</span><span class="tok-tag">${tag}</span>${coloredAttrs}<span class="tok-punc">${close}</span>`;
+            });
+
+            escaped = escaped.replace(/(@import|\burl\b)/g, '<span class="tok-kw">$1</span>');
+            escaped = escaped.replace(/('[^']*')/g, '<span class="tok-str">$1</span>');
+            escaped = escaped.replace(/^(\s*)([a-zA-Z\-]+)(\s*:)/g, '$1<span class="tok-prop">$2</span>$3');
+            escaped = escaped.replace(/(#[0-9a-fA-F]{3,6}|\b\d+(?:px|vh|vw|%|rem|em)?\b)/g, '<span class="tok-val">$1</span>');
+            escaped = escaped.replace(/^(\s*)(\*|[a-zA-Z0-9\.\#\-]+)(\s*\{)/g, '$1<span class="tok-sel">$2</span>$3');
+
+            return escaped;
+        }
+
+        function renderEditor(text) {
+            const lines = text.split('\n');
+            let html = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                const isLastLine = (i === lines.length - 1);
+                const coloredCode = highlightLine(lines[i]);
+                const cursorHtml = isLastLine ? '<span class="cursor"></span>' : '';
+
+                html += `
+                    <div class="code-row">
+                        <div class="line-num">${i + 1}</div>
+                        <div class="line-code">${coloredCode}${cursorHtml}</div>
+                    </div>`;
+            }
+
+            editorWrapper.innerHTML = html;
+        }
+
+        function startTyping() {
+            clearInterval(typingTimer);
+            const fullText = codeInput.value;
+            currentIndex = 0;
+            clearScreen();
+
+            // အသံဖိုင် ထည့်ထားပါက အစမှ စတင်ဖွင့်မည်
+            if (bgAudioPlayer.src) {
+                bgAudioPlayer.currentTime = 0;
+                bgAudioPlayer.play().catch(e => console.log('Audio play error:', e));
+            }
+
+            if (!fullText) return;
+
+            typingTimer = setInterval(() => {
+                if (currentIndex < fullText.length) {
+                    currentIndex++;
+                    const currentSlice = fullText.slice(0, currentIndex);
+                    renderEditor(currentSlice);
+                    editorWrapper.scrollTop = editorWrapper.scrollHeight;
+                } else {
+                    clearInterval(typingTimer);
+                    // စာရိုက်ပြီးတာနဲ့ အသံရပ်ရန် ရွေးထားပါက အသံကို ရပ်မည်
+                    if (stopAudioOnFinish.checked && !bgAudioPlayer.paused) {
+                        bgAudioPlayer.pause();
+                    }
+                }
+            }, typingSpeed);
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Error:', err));
+            });
+        }
+    </script>
+</body>
+</html>
